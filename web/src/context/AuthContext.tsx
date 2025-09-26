@@ -14,7 +14,8 @@ import {
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
-import { steps } from '@/lib/constants';
+import type { Worker, Owner } from '@/lib/types';
+
 
 // Goal type to represent the structured goal data
 export interface Goal {
@@ -23,6 +24,10 @@ export interface Goal {
 }
 
 // Separate interface for the additional user data we store in Firestore
+
+
+export type UserType = 'owner' | 'worker';
+
 interface UserData {
     email: string | null;
     displayName: string | null;
@@ -30,6 +35,10 @@ interface UserData {
     onboardingCompleted: boolean;
     onboardingAnswers: string[];
     goals: Goal[];
+    userType: UserType;
+    // Optionally, store worker/owner data for denormalization
+    workerData?: Worker;
+    ownerData?: Owner;
 }
 
 // Extended user type that combines Firebase User with our additional data
@@ -37,14 +46,17 @@ interface ExtendedUser extends User {
     onboardingCompleted: boolean;
     onboardingAnswers: string[];
     goals: Goal[];
+    userType: UserType;
+    workerData?: Worker;
+    ownerData?: Owner;
 }
 
 interface AuthContextType {
     user: ExtendedUser | null;
     loading: boolean;
-    signUp: (email: string, password: string, name: string) => Promise<void>;
+    signUp: (email: string, password: string, name: string, userType: UserType) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
-    signInWithGoogle: () => Promise<void>;
+    signInWithGoogle: (userType: UserType) => Promise<void>;
     logout: () => Promise<void>;
     updateOnboardingAnswers: (answers: string[]) => Promise<void>;
     updateUserGoals: (goals: Goal[]) => Promise<void>;
@@ -59,14 +71,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<ExtendedUser | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const getDefaultOnboardingAnswers = (): string[] => {
-        return Array(steps.length).fill('');
-    };
 
-    const createOrUpdateUserDocument = async (firebaseUser: User): Promise<ExtendedUser> => {
+    // No steps, so default onboardingAnswers to empty array
+    const getDefaultOnboardingAnswers = (): string[] => [];
+
+    const createOrUpdateUserDocument = async (firebaseUser: User, userType?: UserType): Promise<ExtendedUser> => {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
 
+        // Default to 'worker' if not provided
+        const type: UserType = userType || (userSnap.exists() && (userSnap.data() as UserData).userType) || 'worker';
+
+        // Optionally, create worker/owner data for new users
+        let workerData: Worker | undefined = undefined;
+        let ownerData: Owner | undefined = undefined;
+        if (!userSnap.exists()) {
+            if (type === 'worker') {
+                workerData = {
+                    id: firebaseUser.uid,
+                    name: firebaseUser.displayName || '',
+                    shopId: '',
+                    type: 'full-time',
+                    skills: [],
+                    wageRate: 0,
+                    workType: '',
+                    attendance: [],
+                };
+            } else if (type === 'owner') {
+                ownerData = {
+                    id: firebaseUser.uid,
+                    name: firebaseUser.displayName || '',
+                    shopIds: [],
+                };
+            }
+        }
+
+
+        // Only include workerData/ownerData if defined (avoid undefined fields for Firestore)
         const defaultData: UserData = {
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
@@ -74,32 +115,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             onboardingCompleted: false,
             onboardingAnswers: getDefaultOnboardingAnswers(),
             goals: [],
+            userType: type,
+            ...(workerData ? { workerData } : {}),
+            ...(ownerData ? { ownerData } : {}),
         };
 
         if (!userSnap.exists()) {
-            // New user - create document with default values
             await setDoc(userRef, defaultData);
+        } else if (userType && (userSnap.data() as UserData).userType !== userType) {
+            await updateDoc(userRef, { userType });
         }
 
-        const userData = userSnap.exists() ? userSnap.data() as UserData : defaultData;
+        const userData = userSnap.exists() ? { ...defaultData, ...userSnap.data() } as UserData : defaultData;
 
-        // Ensure goals are properly structured
         const normalizedGoals = Array.isArray(userData.goals) ?
             userData.goals.map(goal => {
-                // Handle both the case where goals are already in the right format
-                // and where they might be just strings from before
                 if (typeof goal === 'string') {
                     return { title: goal, roadmap: [] };
                 }
                 return goal;
             }) : [];
 
-        // Combine Firebase User with our additional data
         return {
             ...firebaseUser,
             onboardingCompleted: userData.onboardingCompleted,
             onboardingAnswers: userData.onboardingAnswers,
             goals: normalizedGoals,
+            userType: userData.userType,
+            workerData: userData.workerData,
+            ownerData: userData.ownerData,
         } as ExtendedUser;
     };
 
@@ -153,11 +197,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(updatedUser);
     };
 
-    const signInWithGoogle = async () => {
+    const signInWithGoogle = async (userType: UserType) => {
         try {
             const provider = new GoogleAuthProvider();
             const userCredential = await signInWithPopup(auth, provider);
-            const extendedUser = await createOrUpdateUserDocument(userCredential.user);
+            const extendedUser = await createOrUpdateUserDocument(userCredential.user, userType);
             setUser(extendedUser);
         } catch (error) {
             console.error('Error signing in with Google:', error);
@@ -165,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const signUp = async (email: string, password: string, name: string) => {
+    const signUp = async (email: string, password: string, name: string, userType: UserType) => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             if (userCredential.user) {
@@ -175,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         displayName: name
                     });
                 }
-                const extendedUser = await createOrUpdateUserDocument(userCredential.user);
+                const extendedUser = await createOrUpdateUserDocument(userCredential.user, userType);
                 setUser(extendedUser);
             }
         } catch (error) {

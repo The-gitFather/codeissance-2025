@@ -25,15 +25,9 @@ export function RegisterModal() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handleClick = () => {
-    if (user) {
-      router.push("/onboarding");
-      toast({
-        title: "You are already logged in!",
-        description: "You can now start using our services.",
-      });
-    }
-  };
+
+  // No longer block register modal if user is logged in
+  const handleClick = () => { };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
