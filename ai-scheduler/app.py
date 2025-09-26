@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from scheduler import schedule
 import logging
 
 app = Flask(__name__)
+CORS(app, origins="*")
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
