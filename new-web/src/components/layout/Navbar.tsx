@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useUser } from '@/contexts/UserContext'
-import { Calendar, Hop as Home, LogOut, Settings } from 'lucide-react'
+import { Calendar, Hop as Home, LogOut, Settings, QrCode, Scan } from 'lucide-react'
 
 export function Navbar() {
   const { user, logout } = useUser()
@@ -42,6 +42,31 @@ export function Navbar() {
                   >
                     <Calendar className="w-4 h-4" />
                     <span>Scheduler</span>
+                  </Button>
+                </Link>
+                <Link href="/attendance/qr">
+                  <Button
+                    variant={pathname === '/attendance/qr' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span>Attendance QR</span>
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {user.type === 'worker' && (
+              <div className="flex space-x-4">
+                <Link href="/attendance/scan">
+                  <Button
+                    variant={pathname === '/attendance/scan' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <Scan className="w-4 h-4" />
+                    <span>Mark Attendance</span>
                   </Button>
                 </Link>
               </div>
