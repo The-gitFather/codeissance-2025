@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -48,16 +48,31 @@ const formSchema = z.object({
 
 interface AddEmployeeDialogProps {
   onEmployeeAdded: (employee: Worker) => void
-  shopRoles?: string[]
 }
 
-export function AddEmployeeDialog({ onEmployeeAdded, shopRoles = [] }: AddEmployeeDialogProps) {
+export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
   const { user } = useUser()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [availableRoles, setAvailableRoles] = useState<string[]>(['General Worker'])
 
-  // Use shop roles or fallback to default role
-  const availableRoles = shopRoles.length > 0 ? shopRoles : ['General Worker']
+  useEffect(() => {
+    async function fetchShopRoles() {
+      if (!user) return
+      try {
+        const shopDoc = await getDoc(doc(db, 'shops', user.id))
+        if (shopDoc.exists()) {
+          const shopData = shopDoc.data()
+          setAvailableRoles(shopData.workTypes && shopData.workTypes.length > 0 
+            ? shopData.workTypes 
+            : ['General Worker'])
+        }
+      } catch (err) {
+        console.error('Error fetching shop roles:', err)
+      }
+    }
+    fetchShopRoles()
+  }, [user])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,7 +88,6 @@ export function AddEmployeeDialog({ onEmployeeAdded, shopRoles = [] }: AddEmploy
 
     setLoading(true)
     try {
-      // First, check if user exists in the system
       const usersQuery = query(
         collection(db, 'users'),
         where('email', '==', values.email)
@@ -89,14 +103,12 @@ export function AddEmployeeDialog({ onEmployeeAdded, shopRoles = [] }: AddEmploy
       const userDoc = usersSnapshot.docs[0]
       const existingUserData = userDoc.data()
       
-      // Check if user is already an employee of this shop
       if (existingUserData.type === 'worker' && existingUserData.ownerId === user.id) {
         toast.error('This user is already an employee of your shop')
         setLoading(false)
         return
       }
 
-      // Update the user to be a worker for this shop
       const updatedWorkerData = {
         ...existingUserData,
         type: 'worker',
@@ -109,7 +121,6 @@ export function AddEmployeeDialog({ onEmployeeAdded, shopRoles = [] }: AddEmploy
 
       await updateDoc(doc(db, 'users', userDoc.id), updatedWorkerData)
 
-      // Update shop's work types array if needed
       const shopDoc = await getDoc(doc(db, 'shops', user.id))
       if (shopDoc.exists()) {
         const shopData = shopDoc.data()
@@ -119,6 +130,7 @@ export function AddEmployeeDialog({ onEmployeeAdded, shopRoles = [] }: AddEmploy
           await updateDoc(doc(db, 'shops', user.id), {
             workTypes: [...currentWorkTypes, values.workType]
           })
+          setAvailableRoles([...currentWorkTypes, values.workType]) // keep UI in sync
         }
       }
 
