@@ -27,6 +27,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
         if (userDoc.exists()) {
           const userData = userDoc.data() as User
+          console.log('Fetched user data:', userData)
           setUser(userData)
         }
         setFirebaseUser(firebaseUser)

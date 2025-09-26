@@ -6,22 +6,213 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Checkbox } from '@/components/ui/checkbox'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Shop, Worker, Shift, DAYS_OF_WEEK } from '@/types'
-import { Calendar, Clock, Users, Zap, ChevronLeft, ChevronRight, Plus, ChevronDown } from 'lucide-react'
-import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns'
+import { Shop, Worker, DAYS_OF_WEEK } from '@/types'
+import { Calendar, Clock, Users, Zap } from 'lucide-react'
+import { format, startOfWeek, addDays } from 'date-fns'
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai'
+
+// Schedule type definitions
+interface ScheduleShift {
+  shift: number;
+  workers: string[];
+}
+
+interface ScheduleDay {
+  day: number;
+  schedule: ScheduleShift[] | 'HOLIDAY';
+}
 
 export default function SchedulerPage() {
   // State to hold auto-schedule result
-  const [autoSchedule, setAutoSchedule] = useState<any[] | null>(null);
+  const [autoSchedule, setAutoSchedule] = useState<ScheduleDay[] | null>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
+  // AI Optimization handler
+  // AI Optimization handler - Fixed version
+  const handleOptimizeWithAI = async () => {
+    if (!autoSchedule || !shop || workers.length === 0) {
+      alert('Please generate an auto-schedule first before optimizing.');
+      return;
+    }
+
+    setIsOptimizing(true);
+
+    try {
+      // Convert current schedule to the format Gemini expects
+      const currentScheduleFormatted = Array.from({ length: 7 }, (_, dayIdx) => {
+        const shifts = shop.shifts.map((shift, shiftIdx) => {
+          // Find workers assigned to this day and shift
+          const daySchedule = autoSchedule.find(d => d.day === dayIdx);
+          if (daySchedule && daySchedule.schedule === 'HOLIDAY') {
+            return [];
+          }
+
+          if (daySchedule && Array.isArray(daySchedule.schedule)) {
+            const shiftSchedule = daySchedule.schedule.find((s) => s.shift === shiftIdx);
+            return shiftSchedule ? shiftSchedule.workers : [];
+          }
+
+          return [];
+        });
+
+        return shifts;
+      });
+
+      // Calculate current shifts per employee
+      const shiftsPerEmployee = {};
+      workers.forEach(worker => {
+        shiftsPerEmployee[worker.name] = 0;
+      });
+
+      currentScheduleFormatted.forEach((dayShifts) => {
+        dayShifts.forEach((shiftWorkers) => {
+          shiftWorkers.forEach((workerName) => {
+            if (shiftsPerEmployee[workerName] !== undefined) {
+              shiftsPerEmployee[workerName]++;
+            }
+          });
+        });
+      });
+
+      // Prepare the prompt for Gemini
+      const prompt = `You are an intelligent scheduling optimizer. Your task is to optimize a work schedule by rearranging shifts among employees while maintaining these STRICT constraints:
+
+CONSTRAINTS:
+1. Each employee MUST keep the exact same total number of shifts they currently have
+2. The total number of workers per shift must remain the same
+3. No shift can exceed its maximum capacity (${shop.shifts.map(s => `${s.name}: ${s.maxEmployees}`).join(', ')})
+
+CURRENT SCHEDULE DATA:
+- Days: Monday(0) to Sunday(6)
+- Shifts per day: ${shop.shifts.map((s, i) => `${i}:${s.name}(${s.startTime}-${s.endTime})`).join(', ')}
+- Current shifts per employee: ${JSON.stringify(shiftsPerEmployee)}
+
+CURRENT SCHEDULE:
+${JSON.stringify(currentScheduleFormatted)}
+
+OPTIMIZATION GOALS:
+1. Distribute shifts more evenly across the week for each employee
+2. Avoid consecutive shifts for the same employee when possible
+3. Balance workload distribution
+
+Return an optimized schedule maintaining all constraints.`;
+
+      // Initialize the Google Generative AI client with proper structure
+      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      const result = await model.generateContent({
+        contents: [
+          { role: "user", parts: [{ text: prompt }] }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "array",
+            items: {
+              type: "array",
+              items: {
+                type: "array",
+                items: {
+                  type: "string"
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const optimizedScheduleText = result.response.text();
+
+      // Parse the JSON response
+      let optimizedSchedule;
+      try {
+        optimizedSchedule = JSON.parse(optimizedScheduleText);
+      } catch (parseError) {
+        console.error('Failed to parse Gemini response:', optimizedScheduleText);
+        throw new Error('Invalid response format from AI: ' + parseError.message);
+      }
+
+      // Validate the response structure
+      if (!Array.isArray(optimizedSchedule) || optimizedSchedule.length !== 7) {
+        throw new Error('Invalid schedule format: expected 7 days');
+      }
+
+      // Convert back to the autoSchedule format
+      const optimizedAutoSchedule = optimizedSchedule.map((dayShifts, dayIdx) => {
+        if (!Array.isArray(dayShifts)) {
+          throw new Error(`Invalid day ${dayIdx}: expected array of shifts`);
+        }
+
+        const shiftsData = dayShifts.map((shiftWorkers, shiftIdx) => {
+          if (!Array.isArray(shiftWorkers)) {
+            throw new Error(`Invalid shift ${shiftIdx} on day ${dayIdx}: expected array of workers`);
+          }
+          return {
+            shift: shiftIdx,
+            workers: shiftWorkers
+          };
+        });
+
+        return {
+          day: dayIdx,
+          schedule: shiftsData
+        };
+      });
+
+      // Validate constraints before applying
+      const newShiftsPerEmployee = {};
+      workers.forEach(worker => {
+        newShiftsPerEmployee[worker.name] = 0;
+      });
+
+      optimizedSchedule.forEach((dayShifts) => {
+        dayShifts.forEach((shiftWorkers) => {
+          shiftWorkers.forEach((workerName) => {
+            if (newShiftsPerEmployee[workerName] !== undefined) {
+              newShiftsPerEmployee[workerName]++;
+            }
+          });
+        });
+      });
+
+      // Check if shift counts are preserved
+      let constraintsViolated = false;
+      for (const worker of workers) {
+        if (shiftsPerEmployee[worker.name] !== newShiftsPerEmployee[worker.name]) {
+          console.error(`Constraint violation: ${worker.name} had ${shiftsPerEmployee[worker.name]} shifts, now has ${newShiftsPerEmployee[worker.name]}`);
+          constraintsViolated = true;
+        }
+      }
+
+      if (constraintsViolated) {
+        throw new Error('AI optimization violated shift count constraints');
+      }
+
+      setAutoSchedule(optimizedAutoSchedule);
+      console.log('Optimized schedule set:', optimizedAutoSchedule);
+      // alert('Schedule optimized successfully with AI!');
+
+    } catch (error) {
+      console.error('AI optimization error:', error);
+
+      // More specific error handling
+      if (error.message?.includes('404') || error.message?.includes('not found')) {
+        alert('AI service unavailable. Please check your API key and model access.');
+      } else if (error.message?.includes('Invalid response format')) {
+        alert('AI returned invalid data format. Please try again.');
+      } else if (error.message?.includes('constraint')) {
+        alert('AI optimization failed to maintain required constraints. Please try again.');
+      } else {
+        alert('AI optimization failed: ' + error.message);
+      }
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   // Auto-schedule handler
   const handleAutoSchedule = async () => {
     if (!shop || workers.length === 0) {
@@ -68,6 +259,7 @@ export default function SchedulerPage() {
       // Print response
       console.log('Auto-schedule response:', data);
       setAutoSchedule(data.schedule);
+      console.log('Auto-schedule data set:', data.schedule);
       alert('Auto-schedule complete!');
     } catch (err) {
       console.error('Auto-schedule error:', err);
@@ -201,9 +393,9 @@ export default function SchedulerPage() {
           <Button className="flex items-center space-x-2" variant="secondary" onClick={handleAutoSchedule}>
             <span>Auto-Schedule</span>
           </Button>
-          <Button className="flex items-center space-x-2">
+          <Button className="flex items-center space-x-2" onClick={handleOptimizeWithAI} disabled={isOptimizing || !autoSchedule}>
             <Zap className="w-4 h-4" />
-            <span>Optimize with AI</span>
+            <span>{isOptimizing ? 'Optimizing...' : 'Optimize with AI'}</span>
           </Button>
         </div>
       </div>
@@ -275,7 +467,7 @@ export default function SchedulerPage() {
                       if (dayObj && dayObj.schedule === 'HOLIDAY') {
                         isHoliday = true;
                       } else if (dayObj && Array.isArray(dayObj.schedule)) {
-                        const shiftObj = dayObj.schedule.find(s => s.shift === shiftIdx);
+                        const shiftObj = dayObj.schedule.find((s: { shift: number; workers: string[] }) => s.shift === shiftIdx);
                         assignedWorkers = shiftObj ? shiftObj.workers : [];
                       }
                     }
