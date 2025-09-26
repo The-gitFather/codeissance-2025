@@ -69,25 +69,27 @@ export default function DashboardPage() {
   }, [user])
 
   const handleShopSubmit = async (shopData: Omit<Shop, 'id' | 'createdAt'>) => {
-    if (!user) return
+  if (!user) return
 
-    setSaving(true)
-    try {
-      const shopDoc = {
-        ...shopData,
-        ownerId: user.id,
-        createdAt: shop?.createdAt || new Date()
-      }
-
-      await setDoc(doc(db, 'shops', user.id), shopDoc)
-      setShop({ id: user.id, ...shopDoc })
-      setIsEditing(false)
-    } catch (error) {
-      console.error('Error saving shop:', error)
-    } finally {
-      setSaving(false)
+  setSaving(true)
+  try {
+    const shopDoc = {
+      ...shopData,
+      ownerId: user.id,
+      createdAt: shop?.createdAt || new Date()
     }
+
+    // Create/update the shop document
+    await setDoc(doc(db, 'shops', user.id), shopDoc)
+    
+    setShop({ id: user.id, ...shopDoc })
+    setIsEditing(false)
+  } catch (error) {
+    console.error('Error saving shop:', error)
+  } finally {
+    setSaving(false)
   }
+}
 
   const handleEmployeeAdded = (newEmployee: Worker) => {
     setWorkers(prev => [...prev, newEmployee])
