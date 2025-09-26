@@ -1,22 +1,83 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@/contexts/UserContext'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Checkbox } from '@/components/ui/checkbox'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Shop, Worker, Shift, DAYS_OF_WEEK } from '@/types'
-import { Calendar, Clock, Users, Zap, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, Users, Zap, ChevronLeft, ChevronRight, Plus, ChevronDown } from 'lucide-react'
 import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns'
 
 export default function SchedulerPage() {
+  // State to hold auto-schedule result
+  const [autoSchedule, setAutoSchedule] = useState<any[] | null>(null);
+  // Auto-schedule handler
+  const handleAutoSchedule = async () => {
+    if (!shop || workers.length === 0) {
+      alert('No shop or workers found.');
+      return;
+    }
+
+    // Hardcoded values
+    const days = 7;
+    const shifts = shop.shifts.length;
+    // All workers available for all days and shifts
+    const availability = workers.flatMap(worker =>
+      Array.from({ length: days }).flatMap((_, dayIdx) =>
+        shop.shifts.map((shift, shiftIdx) => [worker.name, dayIdx, shiftIdx])
+      )
+    );
+    // Hardcode max_shifts: 5 per worker
+    const max_shifts = Object.fromEntries(workers.map(w => [w.name, 10]));
+    // Hardcode coverage: 1 per day
+    const coverage = Array(shifts).fill(1);
+    // Hardcode holidays: Sunday (6)
+    const holidays = [2, 6];
+
+    const body = {
+      employees: workers.map(w => w.name),
+      days,
+      shifts,
+      availability,
+      max_shifts,
+      coverage,
+      holidays,
+    };
+
+    // Print body
+    console.log('Auto-schedule request body:', body);
+
+    try {
+      const res = await fetch('http://127.0.0.1:5000/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      // Print response
+      console.log('Auto-schedule response:', data);
+      setAutoSchedule(data.schedule);
+      alert('Auto-schedule complete!');
+    } catch (err) {
+      console.error('Auto-schedule error:', err);
+      alert('Auto-schedule error: ' + err);
+    }
+  };
   const { user, loading } = useUser()
   const [shop, setShop] = useState<Shop | null>(null)
   const [workers, setWorkers] = useState<Worker[]>([])
-  const [selectedWorkers, setSelectedWorkers] = useState<{[key: string]: string[]}>({})
+  const [selectedWorkers, setSelectedWorkers] = useState<{ [key: string]: string[] }>({})
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [dataLoading, setDataLoading] = useState(true)
 
@@ -32,9 +93,9 @@ export default function SchedulerPage() {
     }
   }, [user])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return
-    
+
     try {
       // Fetch shop
       const shopDoc = await getDoc(doc(db, 'shops', user.id))
@@ -59,14 +120,14 @@ export default function SchedulerPage() {
     } finally {
       setDataLoading(false)
     }
-  }
+  }, [user])
 
   const toggleWorkerShift = (workerId: string, day: string, shiftId: string) => {
     const key = `${day}-${shiftId}`
     setSelectedWorkers(prev => {
       const current = prev[key] || []
       const isSelected = current.includes(workerId)
-      
+
       if (isSelected) {
         return {
           ...prev,
@@ -136,33 +197,15 @@ export default function SchedulerPage() {
           <h1 className="text-3xl font-bold text-gray-900">Scheduler</h1>
           <p className="text-gray-600">Assign employees to shifts</p>
         </div>
-        <Button className="flex items-center space-x-2">
-          <Zap className="w-4 h-4" />
-          <span>Optimize Schedule AI</span>
-        </Button>
-      </div>
-
-      {/* Week Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Previous Week
-        </Button>
-        
-        <h2 className="text-xl font-semibold">
-          Week of {format(currentWeek, 'MMM d, yyyy')}
-        </h2>
-        
-        <Button
-          variant="outline"
-          onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
-        >
-          Next Week
-          <ChevronRight className="w-4 h-4 ml-2" />
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button className="flex items-center space-x-2" variant="secondary" onClick={handleAutoSchedule}>
+            <span>Auto-Schedule</span>
+          </Button>
+          <Button className="flex items-center space-x-2">
+            <Zap className="w-4 h-4" />
+            <span>Optimize with AI</span>
+          </Button>
+        </div>
       </div>
 
       {/* Employees List */}
@@ -184,7 +227,7 @@ export default function SchedulerPage() {
         </CardContent>
       </Card>
 
-      {/* Schedule Calendar */}
+      {/* Schedule Calendar (auto-schedule result if present) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
@@ -207,7 +250,7 @@ export default function SchedulerPage() {
               ))}
 
               {/* Shift Rows */}
-              {shop.shifts.map((shift) => (
+              {shop.shifts.map((shift, shiftIdx) => (
                 <React.Fragment key={shift.id}>
                   {/* Shift Name */}
                   <div className="p-3 border rounded-lg bg-blue-50 flex flex-col justify-center">
@@ -222,56 +265,54 @@ export default function SchedulerPage() {
                   </div>
 
                   {/* Days */}
-                  {weekDays.map((day) => {
-                    const assigned = getAssignedCount(day.name, shift.id)
-                    const max = getMaxEmployees(shift.id)
-                    
+                  {weekDays.map((day, dayIdx) => {
+                    // If autoSchedule is present, use it
+                    let assignedWorkers: string[] = [];
+                    let isHoliday = false;
+                    if (autoSchedule) {
+                      console.log('Auto-schedule data:', autoSchedule);
+                      const dayObj = autoSchedule?.find(d => d.day === dayIdx);
+                      if (dayObj && dayObj.schedule === 'HOLIDAY') {
+                        isHoliday = true;
+                      } else if (dayObj && Array.isArray(dayObj.schedule)) {
+                        const shiftObj = dayObj.schedule.find(s => s.shift === shiftIdx);
+                        assignedWorkers = shiftObj ? shiftObj.workers : [];
+                      }
+                    }
+
                     return (
-                      <div key={`${shift.id}-${day.name}`} className="p-2 border rounded-lg min-h-[120px]">
-                        <div className="mb-2 text-xs text-center">
-                          <span className={`px-2 py-1 rounded ${
-                            assigned === max ? 'bg-green-100 text-green-800' :
-                            assigned > 0 ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>
-                            {assigned}/{max}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-1">
-                          {workers.map((worker) => {
-                            const isAssigned = isWorkerAssigned(worker.id, day.name, shift.id)
-                            const canAssign = assigned < max || isAssigned
-                            
-                            return (
-                              <button
-                                key={worker.id}
-                                onClick={() => canAssign && toggleWorkerShift(worker.id, day.name, shift.id)}
-                                disabled={!canAssign}
-                                className={`w-full text-xs p-1 rounded transition-colors ${
-                                  isAssigned
-                                    ? 'bg-primary text-primary-foreground'
-                                    : canAssign
-                                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                      : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                                }`}
-                              >
-                                {worker.name.split(' ')[0]}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        
-                        {/* Show assigned workers */}
-                        {assigned > 0 && (
-                          <div className="mt-2 pt-2 border-t">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Assigned:</div>
-                            {(selectedWorkers[`${day.name}-${shift.id}`] || []).map((workerId) => (
-                              <div key={workerId} className="text-xs text-primary font-medium">
-                                {getWorkerName(workerId)}
+                      <div key={`${shift.id}-${day.name}`} className="p-3 border rounded-lg min-h-[120px] space-y-2">
+                        {isHoliday ? (
+                          <div className="text-center text-xs text-muted-foreground">Holiday</div>
+                        ) : (
+                          <>
+                            {/* Assignment count indicator */}
+                            <div className="text-xs text-center">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${assignedWorkers.length === shift.maxEmployees ? 'bg-green-100 text-green-800' :
+                                assignedWorkers.length > 0 ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                {assignedWorkers.length}/{shift.maxEmployees}
+                              </span>
+                            </div>
+                            {/* Assigned workers list */}
+                            {assignedWorkers.length > 0 && (
+                              <div className="space-y-1">
+                                {assignedWorkers.slice(0, 3).map((workerName) => (
+                                  <div key={workerName} className="flex items-center justify-between bg-primary/10 rounded px-2 py-1">
+                                    <span className="text-xs font-medium text-primary truncate">
+                                      {workerName}
+                                    </span>
+                                  </div>
+                                ))}
+                                {assignedWorkers.length > 3 && (
+                                  <div className="text-xs text-muted-foreground text-center">
+                                    +{assignedWorkers.length - 3} more
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )
@@ -295,19 +336,19 @@ export default function SchedulerPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Coverage</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round((Object.values(selectedWorkers).reduce((acc, workers) => acc + workers.length, 0) / 
+              {Math.round((Object.values(selectedWorkers).reduce((acc, workers) => acc + workers.length, 0) /
                 (shop.shifts.length * 7 * (shop.shifts.reduce((acc, s) => acc + s.maxEmployees, 0) / shop.shifts.length))) * 100)}%
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Active Workers</CardTitle>

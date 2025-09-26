@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@/contexts/UserContext'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +9,8 @@ import { ShopForm } from '@/components/shop/ShopForm'
 import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Shop, Worker } from '@/types'
-import { Building2, Users, Settings, Plus } from 'lucide-react'
+import { Building2, Users, Settings } from 'lucide-react'
+import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog'
 
 export default function DashboardPage() {
   const { user, loading } = useUser()
@@ -32,7 +33,7 @@ export default function DashboardPage() {
     }
   }, [user])
 
-  const fetchShopData = async () => {
+  const fetchShopData = useCallback(async () => {
     if (!user) return
 
     try {
@@ -45,9 +46,9 @@ export default function DashboardPage() {
     } finally {
       setShopLoading(false)
     }
-  }
+  }, [user])
 
-  const fetchWorkers = async () => {
+  const fetchWorkers = useCallback(async () => {
     if (!user) return
 
     try {
@@ -65,7 +66,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error fetching workers:', error)
     }
-  }
+  }, [user])
 
   const handleShopSubmit = async (shopData: Omit<Shop, 'id' | 'createdAt'>) => {
     if (!user) return
@@ -86,6 +87,10 @@ export default function DashboardPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleEmployeeAdded = (newEmployee: Worker) => {
+    setWorkers(prev => [...prev, newEmployee])
   }
 
   if (loading || shopLoading) {
@@ -187,10 +192,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Employees</h2>
-            <Button size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Invite Employee
-            </Button>
+            <InviteEmployeeDialog onEmployeeAdded={handleEmployeeAdded} />
           </div>
 
           <Card>
