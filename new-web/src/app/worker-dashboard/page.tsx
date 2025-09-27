@@ -7,12 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { 
-  Calendar, 
-  Clock, 
-  DollarSign, 
-  Camera, 
-  MessageSquare, 
+import {
+  Calendar,
+  Clock,
+  DollarSign,
+  Camera,
+  MessageSquare,
   TrendingUp,
   MapPin,
   CheckCircle,
@@ -20,6 +20,9 @@ import {
   CalendarDays,
   Wallet
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { toast } from 'sonner'
 
 // Mock data - replace with real API calls
 const mockScheduleData = {
@@ -96,14 +99,14 @@ export default function WorkerDashboardPage() {
 
   const handleRecommendationSubmit = async () => {
     if (!recommendation.trim()) return
-    
+
     setIsSubmittingRecommendation(true)
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000))
     setIsSubmittingRecommendation(false)
     setRecommendation('')
     // Show success message
-    alert('Availability recommendation submitted successfully!')
+    toast.success('Availability recommendation submitted successfully!')
   }
 
   const handleQRScan = () => {
@@ -112,7 +115,7 @@ export default function WorkerDashboardPage() {
     // For demo purposes, we'll just show a placeholder
     setTimeout(() => {
       setShowCamera(false)
-      alert('QR Code scanned successfully! Attendance recorded.')
+      toast.success('QR Code scanned successfully! Attendance recorded.')
     }, 2000)
   }
 
@@ -158,7 +161,7 @@ export default function WorkerDashboardPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
@@ -170,7 +173,7 @@ export default function WorkerDashboardPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="bg-gradient-to-r from-purple-500 to-pink-600 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
@@ -182,7 +185,7 @@ export default function WorkerDashboardPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
@@ -218,21 +221,20 @@ export default function WorkerDashboardPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {quickDates.map((dayInfo) => (
-                <div 
+                <div
                   key={dayInfo.date}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                    selectedDate === dayInfo.date 
-                      ? 'border-blue-500 bg-blue-50' 
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${selectedDate === dayInfo.date
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 bg-white hover:border-blue-300'
-                  }`}
+                    }`}
                   onClick={() => setSelectedDate(dayInfo.date)}
                 >
                   <div className="text-center">
                     <p className="font-semibold text-gray-900">{dayInfo.label}</p>
                     <p className="text-sm text-gray-600 mb-2">
-                      {new Date(dayInfo.date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
+                      {new Date(dayInfo.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
                       })}
                     </p>
                     {dayInfo.data ? (
@@ -271,10 +273,10 @@ export default function WorkerDashboardPage() {
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center space-x-2 text-gray-900">
               <Clock className="w-5 h-5 text-indigo-600" />
-              <span>Schedule Details - {new Date(selectedDate).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                month: 'long', 
-                day: 'numeric' 
+              <span>Schedule Details - {new Date(selectedDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
               })}</span>
             </CardTitle>
           </CardHeader>
@@ -282,8 +284,8 @@ export default function WorkerDashboardPage() {
             {selectedDateData ? (
               <div className="space-y-4">
                 {selectedDateData.shifts.map((shift) => (
-                  <div 
-                    key={shift.id} 
+                  <div
+                    key={shift.id}
                     className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200"
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -293,11 +295,10 @@ export default function WorkerDashboardPage() {
                           {shift.startTime} - {shift.endTime}
                         </span>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        shift.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        shift.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${shift.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          shift.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                            'bg-yellow-100 text-yellow-800'
+                        }`}>
                         {shift.status}
                       </span>
                     </div>
@@ -386,7 +387,7 @@ export default function WorkerDashboardPage() {
                 onChange={(e) => setRecommendation(e.target.value)}
                 className="min-h-[80px] border-2 border-gray-200 focus:border-indigo-500 rounded-xl resize-none"
               />
-              <Button 
+              <Button
                 onClick={handleRecommendationSubmit}
                 disabled={!recommendation.trim() || isSubmittingRecommendation}
                 className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-2.5 rounded-xl"

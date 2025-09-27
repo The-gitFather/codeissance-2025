@@ -9,12 +9,12 @@ import { ShopForm } from '@/components/shop/ShopForm'
 import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Shop, Worker } from '@/types'
-import { 
-  Building2, 
-  Users, 
-  Settings, 
-  DollarSign, 
-  Clock, 
+import {
+  Building2,
+  Users,
+  Settings,
+  DollarSign,
+  Clock,
   Briefcase,
   UserPlus,
   TrendingUp,
@@ -26,7 +26,7 @@ import {
   Edit3,
   Plus
 } from 'lucide-react'
-import {  AddEmployeeDialog} from '@/components/InviteEmployeeDialog'
+import { AddEmployeeDialog } from '@/components/InviteEmployeeDialog'
 
 export default function DashboardPage() {
   const { user, loading } = useUser()
@@ -97,7 +97,7 @@ export default function DashboardPage() {
 
       // Create/update the shop document
       await setDoc(doc(db, 'shops', user.id), shopDoc)
-      
+
       setShop({ id: user.id, ...shopDoc })
       setIsEditing(false)
     } catch (error) {
@@ -109,14 +109,14 @@ export default function DashboardPage() {
 
   const handleEmployeeAdded = async (newEmployee: Worker) => {
     setWorkers(prev => [...prev, newEmployee])
-    
+
     // Update shop's work types if new work type is added
     if (shop && newEmployee.workType && !shop.workTypes?.includes(newEmployee.workType)) {
       const updatedShop = {
         ...shop,
         workTypes: [...(shop.workTypes || []), newEmployee.workType]
       }
-      
+
       try {
         await setDoc(doc(db, 'shops', user!.id), updatedShop)
         setShop(updatedShop)
@@ -147,21 +147,17 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-slate-50 to-sky-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Business Dashboard
-              </h1>
-              <p className="text-gray-600 mt-2 text-lg">
-                Welcome back! Manage your shop and team efficiently
-              </p>
+              <h1 className="text-4xl font-bold text-indigo-800">Business Dashboard</h1>
+              <p className="text-slate-600 mt-2 text-lg">Welcome back! Manage your shop and team efficiently</p>
             </div>
             <div className="hidden md:flex items-center space-x-4">
-              <div className="bg-white rounded-full p-3 shadow-lg">
+              <div className="bg-white rounded-full p-3 shadow-2xl ring-1 ring-slate-200/70 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_48px_-12px_rgba(2,6,23,0.25)]">
                 <Building2 className="h-8 w-8 text-indigo-600" />
               </div>
             </div>
@@ -170,52 +166,52 @@ export default function DashboardPage() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl">
+          <Card className="bg-white text-slate-900 border-l-4 border-indigo-500 border border-slate-200/80 shadow-2xl rounded-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_48px_-12px_rgba(2,6,23,0.25)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Total Workers</CardTitle>
-              <Users className="h-5 w-5 opacity-80" />
+              <CardTitle className="text-sm font-medium text-slate-600">Total Workers</CardTitle>
+              <Users className="h-5 w-5 text-indigo-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{workers.length}</div>
-              <p className="text-xs opacity-80 mt-1">
-                {workers.length > 0 ? '+12% from last month' : 'Start building your team'}
+              <div className="text-3xl font-bold text-slate-900">{workers.length}</div>
+              <p className="text-xs text-slate-500 mt-1">
+                {workers.length > 0 ? "+12% from last month" : "Start building your team"}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-xl">
+          <Card className="bg-white text-slate-900 border-l-4 border-blue-500 border border-slate-200/80 shadow-2xl rounded-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_48px_-12px_rgba(2,6,23,0.25)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Total Shifts</CardTitle>
-              <Clock className="h-5 w-5 opacity-80" />
+              <CardTitle className="text-sm font-medium text-slate-600">Total Shifts</CardTitle>
+              <Clock className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{shop?.shifts?.length || 0}</div>
-              <p className="text-xs opacity-80 mt-1">
-                {shop?.shifts?.length ? 'Shifts configured' : 'Setup required'}
+              <div className="text-3xl font-bold text-slate-900">{shop?.shifts?.length || 0}</div>
+              <p className="text-xs text-slate-500 mt-1">
+                {shop?.shifts?.length ? "Shifts configured" : "Setup required"}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0 shadow-xl">
+          <Card className="bg-white text-slate-900 border-l-4 border-sky-500 border border-slate-200/80 shadow-2xl rounded-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_48px_-12px_rgba(2,6,23,0.25)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Average Wage</CardTitle>
-              <DollarSign className="h-5 w-5 opacity-80" />
+              <CardTitle className="text-sm font-medium text-slate-600">Average Wage</CardTitle>
+              <DollarSign className="h-5 w-5 text-sky-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${averageWage.toFixed(2)}</div>
-              <p className="text-xs opacity-80 mt-1">Per hour average</p>
+              <div className="text-3xl font-bold text-slate-900">${averageWage.toFixed(2)}</div>
+              <p className="text-xs text-slate-500 mt-1">Per hour average</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-xl">
+          <Card className="bg-white text-slate-900 border-l-4 border-violet-500 border border-slate-200/80 shadow-2xl rounded-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_48px_-12px_rgba(2,6,23,0.25)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">Work Types</CardTitle>
-              <Briefcase className="h-5 w-5 opacity-80" />
+              <CardTitle className="text-sm font-medium text-slate-600">Work Types</CardTitle>
+              <Briefcase className="h-5 w-5 text-violet-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{uniqueWorkTypes.length}</div>
-              <p className="text-xs opacity-80 mt-1">
-                {uniqueWorkTypes.length > 0 ? 'Different roles' : 'Setup required'}
+              <div className="text-3xl font-bold text-slate-900">{uniqueWorkTypes.length}</div>
+              <p className="text-xs text-slate-500 mt-1">
+                {uniqueWorkTypes.length > 0 ? "Different roles" : "Setup required"}
               </p>
             </CardContent>
           </Card>
@@ -226,14 +222,14 @@ export default function DashboardPage() {
           {/* Shop Details Section - Takes 2 columns */}
           <div className="xl:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+              <h2 className="text-2xl font-bold text-slate-900 flex items-center">
                 <Building2 className="w-6 h-6 mr-2 text-indigo-600" />
                 Shop Details
               </h2>
               {shop && !isEditing && (
-                <Button 
-                  onClick={() => setIsEditing(true)} 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg"
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xl hover:shadow-[0_16px_48px_-12px_rgba(67,56,202,0.55)] transition-all duration-200 ease-out"
                   size="sm"
                 >
                   <Edit3 className="w-4 h-4 mr-2" />
@@ -243,34 +239,30 @@ export default function DashboardPage() {
             </div>
 
             {!shop || isEditing ? (
-              <Card className="shadow-xl border-0">
-                <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-t-lg">
-                  <CardTitle className="flex items-center">
-                    <Settings className="w-5 h-5 mr-2" />
-                    {shop ? 'Edit Shop Details' : 'Setup Your Shop'}
+              <Card className="shadow-2xl border border-slate-200 rounded-xl overflow-hidden">
+                <CardHeader className="bg-white border-b border-slate-200">
+                  <CardTitle className="flex items-center text-slate-900">
+                    <Settings className="w-5 h-5 mr-2 text-indigo-600" />
+                    {shop ? "Edit Shop Details" : "Setup Your Shop"}
                   </CardTitle>
-                  <CardDescription className="text-indigo-100">
+                  <CardDescription className="text-slate-500">
                     Configure your shop settings and shift schedules
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <ShopForm
-                    shop={shop || undefined}
-                    onSubmit={handleShopSubmit}
-                    loading={saving}
-                  />
+                  <ShopForm shop={shop || undefined} onSubmit={handleShopSubmit} loading={saving} />
                 </CardContent>
               </Card>
             ) : (
-              <Card className="shadow-xl border-0 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+              <Card className="shadow-2xl border border-slate-200 rounded-xl overflow-hidden">
+                <CardHeader className="bg-white border-b border-slate-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-2xl flex items-center">
-                        <Star className="w-6 h-6 mr-2" />
+                      <CardTitle className="text-2xl flex items-center text-slate-900">
+                        <Star className="w-6 h-6 mr-2 text-indigo-600" />
                         {shop.name}
                       </CardTitle>
-                      <CardDescription className="text-indigo-100 mt-1">
+                      <CardDescription className="text-slate-500 mt-1">
                         {shop.shifts?.length || 0} shifts configured • {workers.length} employees
                       </CardDescription>
                     </div>
@@ -279,28 +271,31 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   {shop.shifts && shop.shifts.length > 0 ? (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800 flex items-center mb-4">
+                      <h3 className="font-semibold text-slate-900 flex items-center mb-4">
                         <Calendar className="w-5 h-5 mr-2 text-indigo-600" />
                         Shift Schedule
                       </h3>
                       <div className="grid gap-4">
                         {shop.shifts.map((shift, index) => (
-                          <div key={shift.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-indigo-200">
+                          <div
+                            key={shift.id}
+                            className="bg-indigo-50 rounded-lg p-4 border border-indigo-200/70 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg"
+                          >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center">
-                                <div className="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                                <div className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3">
                                   {index + 1}
                                 </div>
                                 <div>
-                                  <span className="font-semibold text-gray-800">{shift.name}</span>
-                                  <div className="text-sm text-gray-600 flex items-center mt-1">
-                                    <Clock className="w-4 h-4 mr-1" />
+                                  <span className="font-semibold text-slate-900">{shift.name}</span>
+                                  <div className="text-sm text-slate-600 flex items-center mt-1">
+                                    <Clock className="w-4 h-4 mr-1 text-indigo-600" />
                                     {shift.startTime} - {shift.endTime}
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                                <span className="bg-slate-100 text-slate-800 px-3 py-1 rounded-full text-sm font-medium">
                                   Max: {shift.maxEmployees}
                                 </span>
                               </div>
@@ -318,7 +313,7 @@ export default function DashboardPage() {
 
                   {shop.workTypes && shop.workTypes.length > 0 && (
                     <div className="mt-6 pt-6 border-t">
-                      <h3 className="font-semibold text-gray-800 flex items-center mb-4">
+                      <h3 className="font-semibold text-slate-900 flex items-center mb-4">
                         <Briefcase className="w-5 h-5 mr-2 text-indigo-600" />
                         Available Work Types
                       </h3>
@@ -326,7 +321,7 @@ export default function DashboardPage() {
                         {shop.workTypes.map((workType, index) => (
                           <span
                             key={index}
-                            className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium"
+                            className="bg-violet-100 text-violet-800 px-3 py-1 rounded-full text-sm font-medium"
                           >
                             {workType}
                           </span>
@@ -342,94 +337,93 @@ export default function DashboardPage() {
           {/* Employees Section - Takes 1 column */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+              <h2 className="text-2xl font-bold text-slate-900 flex items-center">
                 <Users className="w-6 h-6 mr-2 text-indigo-600" />
                 Team
               </h2>
               <AddEmployeeDialog onEmployeeAdded={handleEmployeeAdded} />
             </div>
 
-            <Card className="shadow-xl border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-t-lg">
-                <CardTitle className="flex items-center">
-                  <Users className="w-5 h-5 mr-2" />
+            <Card className="shadow-2xl border border-slate-200 rounded-xl overflow-hidden">
+              <CardHeader className="bg-white border-b border-slate-200">
+                <CardTitle className="flex items-center text-slate-900">
+                  <Users className="w-5 h-5 mr-2 text-indigo-600" />
                   Team Members
                 </CardTitle>
-                <CardDescription className="text-emerald-100">
-                  Manage your employees and their roles
-                </CardDescription>
+                <CardDescription className="text-slate-500">Manage your employees and their roles</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 {workers.length === 0 ? (
                   <div className="text-center py-12">
                     <UserPlus className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-800 mb-2">No employees yet</h3>
-                    <p className="text-gray-500 mb-6">
-                      Invite your first employee to get started with team management
-                    </p>
+                    <p className="text-gray-500 mb-6">Invite your first employee to get started with team management</p>
                     <InviteEmployeeDialog onEmployeeAdded={handleEmployeeAdded} />
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {workers.map((worker, index) => (
-                      <div key={worker.id} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                      <div
+                        key={worker.id}
+                        className="bg-white rounded-lg p-4 border border-slate-200/80 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg"
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start">
-                            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mr-3 flex-shrink-0">
+                            <div className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mr-3 flex-shrink-0">
                               {worker.name?.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h3 className="font-semibold text-gray-800 truncate">{worker.name}</h3>
-                              <div className="flex items-center text-sm text-gray-600 mt-1">
+                              <h3 className="font-semibold text-slate-900 truncate">{worker.name}</h3>
+                              <div className="flex items-center text-sm text-slate-600 mt-1">
                                 <Mail className="w-3 h-3 mr-1" />
                                 <span className="truncate">{worker.email}</span>
                               </div>
-                              
+
                               {worker.workType && (
                                 <div className="flex items-center mt-2">
-                                  <Briefcase className="w-3 h-3 mr-1 text-purple-600" />
-                                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+                                  <Briefcase className="w-3 h-3 mr-1 text-violet-600" />
+                                  <span className="bg-violet-100 text-violet-800 px-2 py-1 rounded text-xs font-medium">
                                     {worker.workType}
                                   </span>
                                 </div>
                               )}
-                              
+
                               {worker.hourlyWage && (
                                 <div className="flex items-center mt-2">
-                                  <DollarSign className="w-3 h-3 mr-1 text-green-600" />
-                                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                                  <DollarSign className="w-3 h-3 mr-1 text-sky-600" />
+                                  <span className="bg-sky-100 text-sky-800 px-2 py-1 rounded text-xs font-medium">
                                     ${worker.hourlyWage}/hr
                                   </span>
                                 </div>
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-col items-end">
-                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium flex items-center">
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                            <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-xs font-medium flex items-center">
+                              <div className="w-2 h-2 bg-sky-500 rounded-full mr-1"></div>
                               Active
                             </span>
                           </div>
                         </div>
                       </div>
                     ))}
-                    
+
                     {/* Summary Stats */}
                     {workers.length > 0 && (
-                      <div className="mt-6 pt-4 border-t bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                      <div className="mt-6 pt-4 border-t bg-indigo-50 rounded-lg p-4">
+                        <h4 className="font-semibold text-slate-900 mb-3 flex items-center">
                           <TrendingUp className="w-4 h-4 mr-2 text-indigo-600" />
                           Team Summary
                         </h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="text-center">
-                            <div className="text-2xl font-bold text-indigo-600">{workers.length}</div>
-                            <div className="text-xs text-gray-600">Total Employees</div>
+                            <div className="text-2xl font-bold text-indigo-700">{workers.length}</div>
+                            <div className="text-xs text-slate-600">Total Employees</div>
                           </div>
                           <div className="text-center">
-                            <div className="text-2xl font-bold text-green-600">${averageWage.toFixed(2)}</div>
-                            <div className="text-xs text-gray-600">Avg. Wage/hr</div>
+                            <div className="text-2xl font-bold text-sky-700">${averageWage.toFixed(2)}</div>
+                            <div className="text-xs text-slate-600">Avg. Wage/hr</div>
                           </div>
                         </div>
                       </div>
