@@ -23,38 +23,56 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
+import { collection, getDocs, doc, getDoc, updateDoc, addDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
-// Mock data - replace with real API calls
-const mockScheduleData = {
-  '2025-09-26': {
-    shifts: [
-      { id: 1, startTime: '09:00', endTime: '17:00', location: 'Store A', rate: 250, status: 'confirmed' },
-      { id: 2, startTime: '18:00', endTime: '22:00', location: 'Store B', rate: 280, status: 'pending' }
-    ],
-    totalHours: 12,
-    totalWage: 3160
+// Configuration for shifts and rates
+const SHIFT_CONFIG = {
+  shift0: {
+    name: 'Morning Shift',
+    startTime: '09:00',
+    endTime: '17:00',
+    hours: 8,
+    rate: 250 // per hour
   },
-  '2025-09-25': {
-    shifts: [
-      { id: 3, startTime: '10:00', endTime: '18:00', location: 'Store A', rate: 250, status: 'completed' }
-    ],
-    totalHours: 8,
-    totalWage: 2000
-  },
-  '2025-09-27': {
-    shifts: [
-      { id: 4, startTime: '14:00', endTime: '22:00', location: 'Store C', rate: 300, status: 'confirmed' }
-    ],
-    totalHours: 8,
-    totalWage: 2400
+  shift1: {
+    name: 'Evening Shift',
+    startTime: '18:00',
+    endTime: '22:00',
+    hours: 4,
+    rate: 280 // per hour
   }
+} as const
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// Type definitions
+interface ShiftConfig {
+  name: string;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  rate: number;
 }
 
-const mockMonthlyData = {
-  totalHours: 160,
-  totalWage: 42000,
-  workingDays: 20,
-  averageDaily: 2100
+interface Shift {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  rate: number;
+  totalWage: number;
+  status: string;
+  location: string;
+  present: boolean;
+}
+
+interface ShopData {
+  id: string;
+  name: string;
+  currentSchedule: any[];
+  [key: string]: any;
 }
 
 export default function WorkerDashboardPage() {
@@ -64,11 +82,247 @@ export default function WorkerDashboardPage() {
   const [showCamera, setShowCamera] = useState(false)
   const [recommendation, setRecommendation] = useState('')
   const [isSubmittingRecommendation, setIsSubmittingRecommendation] = useState(false)
+  const [scheduleData, setScheduleData] = useState(null)
+  const [shopData, setShopData] = useState<ShopData | null>(null)
+  const [attendance, setAttendance] = useState<Record<string, boolean>>({})
 
+  // Function to load attendance data
+  // Function to load attendance data
+useEffect(() => {
+  async function loadAttendance() {
+    if (!user?.id || !selectedDate) return;
+
+    try {
+      const docId = `${user.id}-${selectedDate}`; // build docId using selected date
+      const ref = doc(db, "attendance", docId);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        setAttendance(prev => ({
+          ...prev,
+          [selectedDate]: true, // mark this date as present
+        }));
+      } else {
+        setAttendance(prev => ({
+          ...prev,
+          [selectedDate]: false, // mark this date as absent
+        }));
+      }
+    } catch (error) {
+      console.error("Error loading attendance:", error);
+    }
+  }
+
+  loadAttendance();
+}, [user?.id, selectedDate]); // 👈 also depend on selectedDate
+
+
+  // Function to fetch schedule data from Firebase
+  const fetchScheduleData = async () => {
+    if (!user?.name) return
+
+    try {
+      const shopsCollection = collection(db, 'shops')
+      const shopsSnapshot = await getDocs(shopsCollection)
+      
+      // Find the shop where current user is scheduled
+      let userShopData: ShopData | null = null
+      
+      shopsSnapshot.forEach((doc) => {
+        const shopData = doc.data()
+        console.log(shopData)
+        
+        // Check if user is in currentSchedule
+        if (shopData.currentSchedule && Array.isArray(shopData.currentSchedule)) {
+          const userInSchedule = shopData.currentSchedule.some((daySchedule: any) => {
+            if (daySchedule.schedule === "HOLIDAY" || !Array.isArray(daySchedule.schedule)) {
+              return false
+            }
+            console.log(daySchedule.schedule)
+            return daySchedule.schedule.some((shift: any) => 
+              shift.workers && shift.workers.includes(user.name)
+            )
+          })
+          
+          if (userInSchedule) {
+            userShopData = {
+              id: doc.id,
+              ...shopData
+            } as ShopData
+          }
+        }
+      })
+      
+      if (userShopData) {
+        setShopData(userShopData)
+      } else {
+        toast.error('No schedule found for your account')
+      }
+    } catch (error) {
+      console.error('Error fetching schedule data from Firebase:', error)
+      toast.error('Failed to load schedule data')
+    }
+  }
+
+  useEffect(() => {
+    if (user && user.type === 'worker') {
+      fetchScheduleData()
+    }
+  }, [user])
+
+  // Helper function to get Monday-based day index
+  function getMondayBasedDay(date: string): number {
+    const d = new Date(date)
+    return (d.getDay() + 6) % 7
+  }
+
+  // Helper function to determine shift status based on date
+  const getShiftStatus = (date: string): string => {
+    const today = new Date().toISOString().split('T')[0]
+    const shiftDate = new Date(date).toISOString().split('T')[0]
+    
+    if (shiftDate < today) return 'completed'
+    if (shiftDate === today) return 'confirmed'
+    return 'pending'
+  }
+
+  // Function to get worker's shifts for a specific date
+  function getWorkerShiftsForDate(date: string, userName?: string): Shift[] {
+    if (!shopData?.currentSchedule || !userName) return []
+
+    const dayIndex = getMondayBasedDay(date) // 0 = Monday
+    const daySchedule = shopData.currentSchedule[dayIndex]
+
+    if (!daySchedule || daySchedule.schedule === "HOLIDAY") return []
+
+    const dateKey = new Date(date).toISOString().split("T")[0]
+    const isPresent = attendance[dateKey] === true
+
+    const shifts: Shift[] = []
+
+    daySchedule.schedule.forEach((shift: any, idx: number) => {
+      if (shift.workers?.includes(userName)) {
+        const configKey = `shift${idx}` as keyof typeof SHIFT_CONFIG
+        const config = SHIFT_CONFIG[configKey]
+        
+        if (config) {
+          shifts.push({
+            id: `${date}-${idx}`,
+            name: config.name,
+            startTime: config.startTime,
+            endTime: config.endTime,
+            hours: config.hours,
+            rate: config.rate,
+            totalWage: config.hours * config.rate,
+            status: getShiftStatus(date),
+            location: shopData.name,
+            present: isPresent,
+          })
+        }
+      }
+    })
+
+    return shifts
+  }
+
+  // Calculate daily totals for a specific date
+  const getDailyTotals = (date: string, userName?: string) => {
+    const shifts = getWorkerShiftsForDate(date, userName)
+    const totalHours = shifts.reduce((sum, shift) => sum + shift.hours, 0)
+    const totalWage = shifts.reduce((sum, shift) => sum + shift.totalWage, 0)
+    
+    return { shifts, totalHours, totalWage }
+  }
+
+  // Calculate monthly totals
+  const getMonthlyTotals = (userName?: string) => {
+    if (!shopData || !userName) return { totalHours: 0, totalWage: 0, workingDays: 0, averageDaily: 0 }
+    
+    const currentDate = new Date()
+    const currentMonth = currentDate.getMonth()
+    const currentYear = currentDate.getFullYear()
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    
+    let totalHours = 0
+    let totalWage = 0
+    let workingDays = 0
+    
+    // Calculate for each day of the current month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentYear, currentMonth, day).toISOString().split('T')[0]
+      const dailyData = getDailyTotals(date, userName)
+      
+      if (dailyData.shifts.length > 0) {
+        totalHours += dailyData.totalHours
+        totalWage += dailyData.totalWage
+        workingDays++
+      }
+    }
+    
+    const averageDaily = workingDays > 0 ? Math.round(totalWage / workingDays) : 0
+    
+    return { totalHours, totalWage, workingDays, averageDaily }
+  }
+
+  const handleRecommendationSubmit = async () => {
+    if (!recommendation.trim() || !user?.id) return
+
+    setIsSubmittingRecommendation(true)
+    try {
+      // Update user's availability preferences in Firebase
+      const userDocRef = doc(db, 'users', user.id)
+      await updateDoc(userDocRef, {
+        availabilityPreferences: recommendation,
+        lastUpdated: new Date().toISOString()
+      })
+      
+      setRecommendation('')
+      toast.success('Availability recommendation submitted successfully!')
+    } catch (error) {
+      console.error('Error submitting recommendation:', error)
+      toast.error('Failed to submit recommendation')
+    } finally {
+      setIsSubmittingRecommendation(false)
+    }
+  }
+
+  const handleQRScan = async () => {
+    if (!user?.id || !shopData) return
+
+    setShowCamera(true)
+    
+    try {
+      // Simulate camera scanning for 2 seconds
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Record attendance in Firebase
+      const attendanceData = {
+        userId: user.id,
+        userName: user.name,
+        shopId: shopData.id,
+        shopName: shopData.name,
+        timestamp: new Date().toISOString(),
+        date: new Date().toISOString().split('T')[0],
+        method: 'qr_scan'
+      }
+      
+      await addDoc(collection(db, 'attendance'), attendanceData)
+      
+      setShowCamera(false)
+      toast.success('QR Code scanned successfully! Attendance recorded.')
+    } catch (error) {
+      console.error('Error recording attendance:', error)
+      setShowCamera(false)
+      toast.error('Failed to record attendance')
+    }
+  }
+
+  // Redirect if not authorized
   if (!loading && (!user || user.type !== 'worker')) {
     redirect('/')
   }
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -77,7 +331,20 @@ export default function WorkerDashboardPage() {
     )
   }
 
-  const selectedDateData = mockScheduleData[selectedDate]
+  // Check if schedule data is still loading
+  if (!shopData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading schedule data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const selectedDateData = getDailyTotals(selectedDate, user?.name)
+  const monthlyData = getMonthlyTotals(user?.name)
   const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   // Get today, previous, and next day data
@@ -92,37 +359,27 @@ export default function WorkerDashboardPage() {
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
   const quickDates = [
-    { label: 'Yesterday', date: yesterdayStr, data: mockScheduleData[yesterdayStr] },
-    { label: 'Today', date: todayStr, data: mockScheduleData[todayStr] },
-    { label: 'Tomorrow', date: tomorrowStr, data: mockScheduleData[tomorrowStr] }
+    { 
+      label: 'Yesterday', 
+      date: yesterdayStr, 
+      data: getDailyTotals(yesterdayStr, user?.name)
+    },
+    { 
+      label: 'Today', 
+      date: todayStr, 
+      data: getDailyTotals(todayStr, user?.name)
+    },
+    { 
+      label: 'Tomorrow', 
+      date: tomorrowStr, 
+      data: getDailyTotals(tomorrowStr, user?.name)
+    }
   ]
-
-  const handleRecommendationSubmit = async () => {
-    if (!recommendation.trim()) return
-
-    setIsSubmittingRecommendation(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setIsSubmittingRecommendation(false)
-    setRecommendation('')
-    // Show success message
-    toast.success('Availability recommendation submitted successfully!')
-  }
-
-  const handleQRScan = () => {
-    setShowCamera(true)
-    // In a real app, this would open the camera for QR scanning
-    // For demo purposes, we'll just show a placeholder
-    setTimeout(() => {
-      setShowCamera(false)
-      toast.success('QR Code scanned successfully! Attendance recorded.')
-    }, 2000)
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
+      <div className="">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -130,19 +387,9 @@ export default function WorkerDashboardPage() {
                 <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">ShiftSync</h1>
-                <p className="text-sm text-gray-600">Worker Dashboard</p>
+                <h1 className="text-3xl font-bold text-gray-900">Worker Dashboard</h1>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center space-x-2 border-gray-300 hover:bg-gray-50"
-            >
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">{user?.name}</span>
-              <span className="sm:hidden">Profile</span>
-            </Button>
           </div>
         </div>
       </div>
@@ -180,7 +427,7 @@ export default function WorkerDashboardPage() {
                 <TrendingUp className="w-5 h-5" />
                 <div>
                   <p className="text-sm opacity-90">Monthly Hours</p>
-                  <p className="text-xl font-bold">{mockMonthlyData.totalHours}h</p>
+                  <p className="text-xl font-bold">{monthlyData.totalHours}h</p>
                 </div>
               </div>
             </CardContent>
@@ -192,7 +439,7 @@ export default function WorkerDashboardPage() {
                 <DollarSign className="w-5 h-5" />
                 <div>
                   <p className="text-sm opacity-90">Monthly Wage</p>
-                  <p className="text-xl font-bold">₹{mockMonthlyData.totalWage}</p>
+                  <p className="text-xl font-bold">₹{monthlyData.totalWage}</p>
                 </div>
               </div>
             </CardContent>
@@ -237,10 +484,10 @@ export default function WorkerDashboardPage() {
                         day: 'numeric'
                       })}
                     </p>
-                    {dayInfo.data ? (
+                    {dayInfo.data.shifts.length > 0 ? (
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-blue-600">
-                          {dayInfo.data.shifts.length} shifts
+                          {dayInfo.data.shifts.length} shift{dayInfo.data.shifts.length > 1 ? 's' : ''}
                         </p>
                         <p className="text-xs text-gray-500">₹{dayInfo.data.totalWage}</p>
                       </div>
@@ -281,7 +528,7 @@ export default function WorkerDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedDateData ? (
+            {selectedDateData.shifts.length > 0 ? (
               <div className="space-y-4">
                 {selectedDateData.shifts.map((shift) => (
                   <div
@@ -292,7 +539,7 @@ export default function WorkerDashboardPage() {
                       <div className="flex items-center space-x-2">
                         <Clock className="w-4 h-4 text-blue-600" />
                         <span className="font-semibold text-gray-900">
-                          {shift.startTime} - {shift.endTime}
+                          {shift.name} ({shift.startTime} - {shift.endTime})
                         </span>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${shift.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -308,9 +555,30 @@ export default function WorkerDashboardPage() {
                         <span>{shift.location}</span>
                       </div>
                       <div className="flex items-center space-x-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{shift.hours}h</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
                         <DollarSign className="w-4 h-4" />
                         <span>₹{shift.rate}/hr</span>
                       </div>
+                      <div className="flex items-center space-x-1">
+                        <Wallet className="w-4 h-4" />
+                        <span>₹{shift.totalWage}</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center space-x-2">
+                      {shift.present ? (
+                        <span className="text-green-600 flex items-center space-x-1">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Present</span>
+                        </span>
+                      ) : (
+                        <span className="text-red-600 flex items-center space-x-1">
+                          <span>✘</span>
+                          <span>Absent</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -328,6 +596,9 @@ export default function WorkerDashboardPage() {
               <div className="text-center py-8 text-gray-500">
                 <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>No shifts scheduled for this date</p>
+                {new Date(selectedDate).getDay() === 0 || new Date(selectedDate).getDay() === 6 ? (
+                  <p className="text-sm mt-2">This appears to be a weekend/holiday</p>
+                ) : null}
               </div>
             )}
           </CardContent>
@@ -345,22 +616,22 @@ export default function WorkerDashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
                 <Clock className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                <p className="text-2xl font-bold text-blue-700">{mockMonthlyData.totalHours}</p>
+                <p className="text-2xl font-bold text-blue-700">{monthlyData.totalHours}</p>
                 <p className="text-sm text-blue-600">Total Hours</p>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
                 <DollarSign className="w-8 h-8 mx-auto mb-2 text-green-600" />
-                <p className="text-2xl font-bold text-green-700">₹{mockMonthlyData.totalWage}</p>
+                <p className="text-2xl font-bold text-green-700">₹{monthlyData.totalWage}</p>
                 <p className="text-sm text-green-600">Total Wage</p>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
                 <CalendarDays className="w-8 h-8 mx-auto mb-2 text-purple-600" />
-                <p className="text-2xl font-bold text-purple-700">{mockMonthlyData.workingDays}</p>
+                <p className="text-2xl font-bold text-purple-700">{monthlyData.workingDays}</p>
                 <p className="text-sm text-purple-600">Working Days</p>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl">
                 <TrendingUp className="w-8 h-8 mx-auto mb-2 text-orange-600" />
-                <p className="text-2xl font-bold text-orange-700">₹{mockMonthlyData.averageDaily}</p>
+                <p className="text-2xl font-bold text-orange-700">₹{monthlyData.averageDaily}</p>
                 <p className="text-sm text-orange-600">Daily Average</p>
               </div>
             </div>
