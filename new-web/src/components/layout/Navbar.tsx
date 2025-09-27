@@ -64,19 +64,43 @@ export function Navbar() {
             )}
 
             {user.type === "worker" && (
-              <div className="hidden items-center gap-6 md:flex">
-                <Link href="/attendance/scan">
-                  <Button
-                    variant={pathname === "/attendance/scan" ? "default" : "ghost"}
-                    size="default"
-                    className="flex items-center gap-2 transition-colors"
-                  >
-                    <Scan className="h-5 w-5" />
-                    <span>Mark Attendance</span>
-                  </Button>
-                </Link>
-              </div>
-            )}
+  <div className="hidden items-center gap-6 md:flex">
+    {/* Dashboard */}
+    <Link href="/worker-dashboard">
+      <Button
+        variant={pathname === "/worker-dashboard" ? "default" : "ghost"}
+        size="default"
+        className="flex items-center gap-2 transition-colors"
+      >
+        <span>Dashboard</span>
+      </Button>
+    </Link>
+
+    {/* Profile */}
+    <Link href="/worker-profile">
+      <Button
+        variant={pathname === "/worker-profile" ? "default" : "ghost"}
+        size="default"
+        className="flex items-center gap-2 transition-colors"
+      >
+        <span>Profile</span>
+      </Button>
+    </Link>
+
+    {/* Attendance */}
+    <Link href="/attendance/scan">
+      <Button
+        variant={pathname === "/attendance/scan" ? "default" : "ghost"}
+        size="default"
+        className="flex items-center gap-2 transition-colors"
+      >
+        <Scan className="h-5 w-5" />
+        <span>Mark Attendance</span>
+      </Button>
+    </Link>
+  </div>
+)}
+
           </div>
 
           <div className="flex items-center gap-4">
@@ -147,19 +171,43 @@ export function Navbar() {
             )}
 
             {user.type === "worker" && (
-              <div className="flex flex-col gap-2 py-2">
-                <Link href="/attendance/scan" onClick={() => setOpen(false)}>
-                  <Button
-                    variant={pathname === "/attendance/scan" ? "default" : "ghost"}
-                    size="sm"
-                    className="w-full justify-start gap-2"
-                  >
-                    <Scan className="h-4 w-4" />
-                    <span>Mark Attendance</span>
-                  </Button>
-                </Link>
-              </div>
-            )}
+  <div className="flex flex-col gap-2 py-2">
+    {/* Dashboard */}
+    <Link href="/worker-dashboard" onClick={() => setOpen(false)}>
+      <Button
+        variant={pathname === "/worker-dashboard" ? "default" : "ghost"}
+        size="sm"
+        className="w-full justify-start gap-2"
+      >
+        <span>Dashboard</span>
+      </Button>
+    </Link>
+
+    {/* Profile */}
+    <Link href="/worker-profile" onClick={() => setOpen(false)}>
+      <Button
+        variant={pathname === "/worker-profile" ? "default" : "ghost"}
+        size="sm"
+        className="w-full justify-start gap-2"
+      >
+        <span>Profile</span>
+      </Button>
+    </Link>
+
+    {/* Attendance */}
+    <Link href="/attendance/scan" onClick={() => setOpen(false)}>
+      <Button
+        variant={pathname === "/attendance/scan" ? "default" : "ghost"}
+        size="sm"
+        className="w-full justify-start gap-2"
+      >
+        <Scan className="h-4 w-4" />
+        <span>Mark Attendance</span>
+      </Button>
+    </Link>
+  </div>
+)}
+
 
             <div className="mt-2 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
