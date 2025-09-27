@@ -236,6 +236,27 @@ Return an optimized schedule maintaining all constraints.`;
     }
   };
 
+  const send_sms = async(schedule) => {
+    try {
+      const res = await fetch('http://localhost:8000/api/track-and-send-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          "to_phone": "+919920455341",
+          "person_name": workers[0].name,
+          "consent": true,
+          "schedule": schedule 
+        })
+      });
+      if (!res.ok) throw new Error('Failed to send SMS');
+      const data = await res.json();
+      console.log('SMS sent successfully:', data);
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      toast.error('Failed to send SMS');
+    }
+  }
+
   // Auto-schedule handler
   const handleAutoSchedule = async () => {
     if (!shop || workers.length === 0) {
@@ -294,6 +315,7 @@ Return an optimized schedule maintaining all constraints.`;
           });
 
           setAutoSchedule(data.schedule);
+          await send_sms(data.schedule);
           console.log('Auto-schedule saved to shop:', data.schedule);
           toast.success('Auto-schedule complete and saved!');
         } catch (saveError) {

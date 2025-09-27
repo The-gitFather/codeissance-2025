@@ -6,6 +6,7 @@ const VALID_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'sat
 export async function POST(request: Request) {
   try {
     const { email, day, shift } = await request.json();
+    console.log({ email, day, shift });
 
     if (!email || !day || !shift) {
       return Response.json(

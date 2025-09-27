@@ -11,6 +11,11 @@ from twilio.rest import Client
 from dotenv import load_dotenv
 from datetime import datetime
 
+# Add these imports near the top of your file (if not already present)
+from typing import Any, List, Union
+from pydantic import BaseModel
+from fastapi import Body
+
 # Load env
 load_dotenv()
 
@@ -189,6 +194,164 @@ async def send_advertisement(to_phone: str):
 @app.get("/api/templates")
 def list_templates():
     return {"templates": list(TEMPLATES.keys())}
+
+
+
+# New Pydantic model for the tracking request
+class TrackScheduleRequest(BaseModel):
+    to_phone: str
+    person_name: str
+    schedule: List[Any]  # Accept the array you provided; we'll validate/proc in code
+    consent: bool = False
+    note: Union[str, None] = None
+
+def _format_person_day_entry(day_obj: dict, person: str) -> str:
+    """
+    Given a day object like {"day": 0, "schedule": [...] } or schedule == "HOLIDAY",
+    return a one-line human friendly string for that person for that day.
+    """
+    day_index = day_obj.get("day")
+    sched = day_obj.get("schedule")
+
+    if isinstance(sched, str) and sched.upper() == "HOLIDAY":
+        return f"Day {day_index}: HOLIDAY"
+
+    # sched expected to be a list of shift objects
+    if not isinstance(sched, list):
+        return f"Day {day_index}: (invalid schedule format)"
+
+    # find shifts where person is present
+    present_shifts = []
+    for shift_obj in sched:
+        # shift_obj expected like {"shift": 0, "workers": ["Name", ...]}
+        shift_id = shift_obj.get("shift")
+        workers = shift_obj.get("workers") or []
+        # Normalize strings to compare
+        # Accept case-insensitive matching and strip spaces
+        normalized_workers = [w.strip().lower() for w in workers if isinstance(w, str)]
+        if person.strip().lower() in normalized_workers:
+            # list coworkers (excluding the person)
+            coworkers = [w for w in workers if isinstance(w, str) and w.strip().lower() != person.strip().lower()]
+            if coworkers:
+                present_shifts.append(f"Shift {shift_id} (with {', '.join(coworkers)})")
+            else:
+                present_shifts.append(f"Shift {shift_id}")
+
+    if not present_shifts:
+        return f"Day {day_index}: Off"
+    else:
+        return f"Day {day_index}: " + "; ".join(present_shifts)
+
+def build_person_schedule_summary(schedule_list: List[Any], person: str) -> str:
+    """
+    Builds a compact 3-day text summary for the given person.
+    Example output:
+      Lavanya:
+      D0: S0
+      D1: S0,S1
+      D2: HOLIDAY
+    """
+    # Sort by day
+    try:
+        sorted_days = sorted(schedule_list, key=lambda d: d.get("day", 0))
+    except Exception:
+        sorted_days = schedule_list
+
+    # Only take first 3 days
+    # sorted_days = sorted_days[:3]
+
+    lines = [f"{person}:"]
+    for day_obj in sorted_days:
+        day_index = day_obj.get("day", "?") if isinstance(day_obj, dict) else "?"
+        sched = day_obj.get("schedule")
+
+        if isinstance(sched, str) and sched.upper() == "HOLIDAY":
+            lines.append(f"DAY {day_index}: HOLIDAY")
+            continue
+
+        if not isinstance(sched, list):
+            lines.append(f"DAY {day_index}: ERR")
+            continue
+
+        shifts = []
+        for shift_obj in sched:
+            workers = shift_obj.get("workers") or []
+            if person.strip().lower() in [w.strip().lower() for w in workers if isinstance(w, str)]:
+                shifts.append(f"S{shift_obj.get('shift')}")
+        if shifts:
+            lines.append(f"D{day_index}: {','.join(shifts)}")
+        else:
+            lines.append(f"D{day_index}: OFF")
+
+    return "\n".join(lines)
+
+
+@app.post("/api/track-and-send-schedule")
+async def track_and_send_schedule(req: TrackScheduleRequest = Body(...)):
+    """
+    Accepts the full schedule array, the person to track, and a phone number.
+    Returns the computed per-day schedule for the person and attempts to send it via Twilio.
+    Enforces the same consent + rate limit checks as your simulate-sms endpoint.
+    """
+    to_phone = req.to_phone.strip()
+    person = req.person_name.strip()
+
+    # Basic phone format validation (E.164-like)
+    if not to_phone.startswith("+"):
+        raise HTTPException(
+            status_code=400,
+            detail="Phone number must be in E.164 format starting with + and country code."
+        )
+
+    if not req.consent:
+        raise HTTPException(
+            status_code=403,
+            detail="Recipient not authorized. Set consent=true for prototype."
+        )
+
+    if not _rate_limit_allow(to_phone):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded for {to_phone}. Max {RATE_LIMIT_MAX_PER_HOUR} per hour.",
+        )
+
+    # Build the person's schedule summary string
+    try:
+        summary_text = build_person_schedule_summary(req.schedule, person)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid schedule format: {e}")
+
+    # Prepare SMS message (append simulation marker if not present)
+    message = summary_text
+    if SIMULATION_MARKER not in message:
+        message = message + "\n" + SIMULATION_MARKER
+
+    # Send via Twilio
+    send_result = send_sms_via_twilio(to_phone, message)
+
+    record = {
+        "to": to_phone,
+        "person_tracked": person,
+        "message": message,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "status": send_result.get("status"),
+        "twilio_sid": send_result.get("sid"),
+        "note": req.note or "",
+    }
+
+    # Return both the structured schedule we computed and the send result
+    return JSONResponse(
+        status_code=200 if send_result.get("status") == "sent" else 500,
+        content={
+            "computed_schedule": {
+                "person": person,
+                "text_summary": summary_text,
+            },
+            "send_result": send_result,
+            "record": record,
+        },
+    )
+
   
   
   
