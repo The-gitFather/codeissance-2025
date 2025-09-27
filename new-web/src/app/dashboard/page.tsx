@@ -422,7 +422,7 @@ export default function DashboardPage() {
                             <div className="text-xs text-slate-600">Total Employees</div>
                           </div>
                           <div className="text-center">
-                            <div className="text-2xl font-bold text-sky-700">${averageWage.toFixed(2)}</div>
+                            <div className="text-2xl font-bold text-sky-700">₹{averageWage.toFixed(2)}</div>
                             <div className="text-xs text-slate-600">Avg. Wage/hr</div>
                           </div>
                         </div>
