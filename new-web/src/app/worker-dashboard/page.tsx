@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Calendar,
   Clock,
-  DollarSign,
+  IndianRupee,
   Camera,
   MessageSquare,
   TrendingUp,
@@ -88,33 +88,33 @@ export default function WorkerDashboardPage() {
 
   // Function to load attendance data
   // Function to load attendance data
-useEffect(() => {
-  async function loadAttendance() {
-    if (!user?.id || !selectedDate) return;
+  useEffect(() => {
+    async function loadAttendance() {
+      if (!user?.id || !selectedDate) return;
 
-    try {
-      const docId = `${user.id}-${selectedDate}`; // build docId using selected date
-      const ref = doc(db, "attendance", docId);
-      const snap = await getDoc(ref);
+      try {
+        const docId = `${user.id}-${selectedDate}`; // build docId using selected date
+        const ref = doc(db, "attendance", docId);
+        const snap = await getDoc(ref);
 
-      if (snap.exists()) {
-        setAttendance(prev => ({
-          ...prev,
-          [selectedDate]: true, // mark this date as present
-        }));
-      } else {
-        setAttendance(prev => ({
-          ...prev,
-          [selectedDate]: false, // mark this date as absent
-        }));
+        if (snap.exists()) {
+          setAttendance(prev => ({
+            ...prev,
+            [selectedDate]: true, // mark this date as present
+          }));
+        } else {
+          setAttendance(prev => ({
+            ...prev,
+            [selectedDate]: false, // mark this date as absent
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading attendance:", error);
       }
-    } catch (error) {
-      console.error("Error loading attendance:", error);
     }
-  }
 
-  loadAttendance();
-}, [user?.id, selectedDate]); // 👈 also depend on selectedDate
+    loadAttendance();
+  }, [user?.id, selectedDate]); // 👈 also depend on selectedDate
 
 
   // Function to fetch schedule data from Firebase
@@ -124,14 +124,14 @@ useEffect(() => {
     try {
       const shopsCollection = collection(db, 'shops')
       const shopsSnapshot = await getDocs(shopsCollection)
-      
+
       // Find the shop where current user is scheduled
       let userShopData: ShopData | null = null
-      
+
       shopsSnapshot.forEach((doc) => {
         const shopData = doc.data()
         console.log(shopData)
-        
+
         // Check if user is in currentSchedule
         if (shopData.currentSchedule && Array.isArray(shopData.currentSchedule)) {
           const userInSchedule = shopData.currentSchedule.some((daySchedule: any) => {
@@ -139,11 +139,11 @@ useEffect(() => {
               return false
             }
             console.log(daySchedule.schedule)
-            return daySchedule.schedule.some((shift: any) => 
+            return daySchedule.schedule.some((shift: any) =>
               shift.workers && shift.workers.includes(user.name)
             )
           })
-          
+
           if (userInSchedule) {
             userShopData = {
               id: doc.id,
@@ -152,7 +152,7 @@ useEffect(() => {
           }
         }
       })
-      
+
       if (userShopData) {
         setShopData(userShopData)
       } else {
@@ -180,7 +180,7 @@ useEffect(() => {
   const getShiftStatus = (date: string): string => {
     const today = new Date().toISOString().split('T')[0]
     const shiftDate = new Date(date).toISOString().split('T')[0]
-    
+
     if (shiftDate < today) return 'completed'
     if (shiftDate === today) return 'confirmed'
     return 'pending'
@@ -204,7 +204,7 @@ useEffect(() => {
       if (shift.workers?.includes(userName)) {
         const configKey = `shift${idx}` as keyof typeof SHIFT_CONFIG
         const config = SHIFT_CONFIG[configKey]
-        
+
         if (config) {
           shifts.push({
             id: `${date}-${idx}`,
@@ -230,37 +230,37 @@ useEffect(() => {
     const shifts = getWorkerShiftsForDate(date, userName)
     const totalHours = shifts.reduce((sum, shift) => sum + shift.hours, 0)
     const totalWage = shifts.reduce((sum, shift) => sum + shift.totalWage, 0)
-    
+
     return { shifts, totalHours, totalWage }
   }
 
   // Calculate monthly totals
   const getMonthlyTotals = (userName?: string) => {
     if (!shopData || !userName) return { totalHours: 0, totalWage: 0, workingDays: 0, averageDaily: 0 }
-    
+
     const currentDate = new Date()
     const currentMonth = currentDate.getMonth()
     const currentYear = currentDate.getFullYear()
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-    
+
     let totalHours = 0
     let totalWage = 0
     let workingDays = 0
-    
+
     // Calculate for each day of the current month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth, day).toISOString().split('T')[0]
       const dailyData = getDailyTotals(date, userName)
-      
+
       if (dailyData.shifts.length > 0) {
         totalHours += dailyData.totalHours
         totalWage += dailyData.totalWage
         workingDays++
       }
     }
-    
+
     const averageDaily = workingDays > 0 ? Math.round(totalWage / workingDays) : 0
-    
+
     return { totalHours, totalWage, workingDays, averageDaily }
   }
 
@@ -275,7 +275,7 @@ useEffect(() => {
         availabilityPreferences: recommendation,
         lastUpdated: new Date().toISOString()
       })
-      
+
       setRecommendation('')
       toast.success('Availability recommendation submitted successfully!')
     } catch (error) {
@@ -290,11 +290,11 @@ useEffect(() => {
     if (!user?.id || !shopData) return
 
     setShowCamera(true)
-    
+
     try {
       // Simulate camera scanning for 2 seconds
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       // Record attendance in Firebase
       const attendanceData = {
         userId: user.id,
@@ -305,9 +305,9 @@ useEffect(() => {
         date: new Date().toISOString().split('T')[0],
         method: 'qr_scan'
       }
-      
+
       await addDoc(collection(db, 'attendance'), attendanceData)
-      
+
       setShowCamera(false)
       toast.success('QR Code scanned successfully! Attendance recorded.')
     } catch (error) {
@@ -359,19 +359,19 @@ useEffect(() => {
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
   const quickDates = [
-    { 
-      label: 'Yesterday', 
-      date: yesterdayStr, 
+    {
+      label: 'Yesterday',
+      date: yesterdayStr,
       data: getDailyTotals(yesterdayStr, user?.name)
     },
-    { 
-      label: 'Today', 
-      date: todayStr, 
+    {
+      label: 'Today',
+      date: todayStr,
       data: getDailyTotals(todayStr, user?.name)
     },
-    { 
-      label: 'Tomorrow', 
-      date: tomorrowStr, 
+    {
+      label: 'Tomorrow',
+      date: tomorrowStr,
       data: getDailyTotals(tomorrowStr, user?.name)
     }
   ]
@@ -436,7 +436,7 @@ useEffect(() => {
           <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5" />
+                <IndianRupee className="w-5 h-5" />
                 <div>
                   <p className="text-sm opacity-90">Monthly Wage</p>
                   <p className="text-xl font-bold">₹{monthlyData.totalWage}</p>
@@ -471,8 +471,8 @@ useEffect(() => {
                 <div
                   key={dayInfo.date}
                   className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${selectedDate === dayInfo.date
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 bg-white hover:border-blue-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-blue-300'
                     }`}
                   onClick={() => setSelectedDate(dayInfo.date)}
                 >
@@ -543,8 +543,8 @@ useEffect(() => {
                         </span>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${shift.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          shift.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
+                        shift.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
                         }`}>
                         {shift.status}
                       </span>
@@ -559,7 +559,7 @@ useEffect(() => {
                         <span>{shift.hours}h</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <DollarSign className="w-4 h-4" />
+                        <IndianRupee className="w-4 h-4" />
                         <span>₹{shift.rate}/hr</span>
                       </div>
                       <div className="flex items-center space-x-1">
@@ -620,7 +620,7 @@ useEffect(() => {
                 <p className="text-sm text-blue-600">Total Hours</p>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
-                <DollarSign className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                <IndianRupee className="w-8 h-8 mx-auto mb-2 text-green-600" />
                 <p className="text-2xl font-bold text-green-700">₹{monthlyData.totalWage}</p>
                 <p className="text-sm text-green-600">Total Wage</p>
               </div>

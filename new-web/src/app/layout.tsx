@@ -6,6 +6,8 @@ import { UserProvider } from '@/contexts/UserContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
+import AccessibilityMenuWrapper from "@/components/Accessibility/AccessibiltyWrapper";
+import { VoiceNavigationDockComponent } from "@/components/voice-navigation-dock";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,11 +25,14 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <UserProvider>
-          <Navbar />
-          <main className="min-h-screen bg-gray-50">
-            {children}
-          </main>
-          <Toaster />
+          <AccessibilityMenuWrapper>
+            <VoiceNavigationDockComponent />
+            <Navbar />
+            <main className="min-h-screen bg-gray-50">
+              {children}
+            </main>
+            <Toaster />
+          </AccessibilityMenuWrapper>
         </UserProvider>
       </body>
     </html>

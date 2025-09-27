@@ -6,6 +6,45 @@
 @tailwind utilities;
 @custom-variant dark (&:is(.dark *));
 
+/* Hide scrollbars for all browsers */
+::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.skiptranslate{
+  display: none;
+}
+
+.VIpgJd-ZVi9od-aZ2wEe{
+  display: none;
+}
+
+.nextjs-toast-errors-parent{
+  display: none;
+}
+
+.nextjs-error-with-static{
+  display: none;
+}
+
+.tl-watermark_SEE-LICENSE {
+  display: none !important;
+}
+
+nextjs-portal{
+  display: none;
+}
 @layer base {
   :root {
     --background: 0 0% 100%;

@@ -13,7 +13,7 @@ import {
   Building2,
   Users,
   Settings,
-  DollarSign,
+  IndianRupee,
   Clock,
   Briefcase,
   UserPlus,
@@ -195,10 +195,10 @@ export default function DashboardPage() {
           <Card className="bg-white text-slate-900 border-l-4 border-sky-500 border border-slate-200/80 shadow-2xl rounded-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_48px_-12px_rgba(2,6,23,0.25)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Average Wage</CardTitle>
-              <DollarSign className="h-5 w-5 text-sky-600" />
+              <IndianRupee className="h-5 w-5 text-sky-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">${averageWage.toFixed(2)}</div>
+              <div className="text-3xl font-bold text-slate-900">₹{averageWage.toFixed(2)}</div>
               <p className="text-xs text-slate-500 mt-1">Per hour average</p>
             </CardContent>
           </Card>
@@ -358,7 +358,7 @@ export default function DashboardPage() {
                     <UserPlus className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-800 mb-2">No employees yet</h3>
                     <p className="text-gray-500 mb-6">Invite your first employee to get started with team management</p>
-                    <AddEmployeeDialog  onEmployeeAdded={handleEmployeeAdded} />
+                    <AddEmployeeDialog onEmployeeAdded={handleEmployeeAdded} />
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -390,9 +390,9 @@ export default function DashboardPage() {
 
                               {worker.hourlyWage && (
                                 <div className="flex items-center mt-2">
-                                  <DollarSign className="w-3 h-3 mr-1 text-sky-600" />
+                                  <IndianRupee className="w-3 h-3 mr-1 text-sky-600" />
                                   <span className="bg-sky-100 text-sky-800 px-2 py-1 rounded text-xs font-medium">
-                                    ${worker.hourlyWage}/hr
+                                    ₹{worker.hourlyWage}/hr
                                   </span>
                                 </div>
                               )}

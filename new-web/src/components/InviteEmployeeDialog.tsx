@@ -27,9 +27,9 @@ import { useUser } from '@/contexts/UserContext'
 import { doc, getDoc, updateDoc, query, where, getDocs, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Worker } from '@/types'
-import { UserPlus, Mail, DollarSign, Briefcase, Loader2, Building, Users } from 'lucide-react'
+import { UserPlus, Mail, IndianRupee, Briefcase, Loader2, Building, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -63,8 +63,8 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
         const shopDoc = await getDoc(doc(db, 'shops', user.id))
         if (shopDoc.exists()) {
           const shopData = shopDoc.data()
-          setAvailableRoles(shopData.workTypes && shopData.workTypes.length > 0 
-            ? shopData.workTypes 
+          setAvailableRoles(shopData.workTypes && shopData.workTypes.length > 0
+            ? shopData.workTypes
             : ['General Worker'])
         }
       } catch (err) {
@@ -93,7 +93,7 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
         where('email', '==', values.email)
       )
       const usersSnapshot = await getDocs(usersQuery)
-      
+
       if (usersSnapshot.empty) {
         toast.error('No user found with this email address')
         setLoading(false)
@@ -102,7 +102,7 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
 
       const userDoc = usersSnapshot.docs[0]
       const existingUserData = userDoc.data()
-      
+
       if (existingUserData.type === 'worker' && existingUserData.ownerId === user.id) {
         toast.error('This user is already an employee of your shop')
         setLoading(false)
@@ -125,7 +125,7 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
       if (shopDoc.exists()) {
         const shopData = shopDoc.data()
         const currentWorkTypes = shopData.workTypes || []
-        
+
         if (!currentWorkTypes.includes(values.workType)) {
           await updateDoc(doc(db, 'shops', user.id), {
             workTypes: [...currentWorkTypes, values.workType]
@@ -140,9 +140,9 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
       } as Worker
 
       onEmployeeAdded(newWorker)
-      
+
       toast.success(`Employee added successfully with role: ${values.workType}`)
-      
+
       form.reset()
       setOpen(false)
     } catch (error: any) {
@@ -168,7 +168,7 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
           Add Employee
         </Button>
       </DialogTrigger>
-      <DialogContent 
+      <DialogContent
         className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto bg-white border border-gray-200 shadow-2xl rounded-lg z-50"
         onInteractOutside={(e) => {
           if (loading) {
@@ -189,7 +189,7 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
             </DialogDescription>
           </div>
         </DialogHeader>
-        
+
         <div className="py-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -204,10 +204,10 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
                       Employee Email
                     </FormLabel>
                     <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="employee@example.com" 
-                        {...field} 
+                      <Input
+                        type="email"
+                        placeholder="employee@example.com"
+                        {...field}
                         className="h-10 border-slate-300 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                         disabled={loading}
                       />
@@ -231,8 +231,8 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
                         <Briefcase className="w-4 h-4 mr-2 text-slate-500" />
                         Job Role
                       </FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
+                      <Select
+                        onValueChange={field.onChange}
                         defaultValue={field.value}
                         disabled={loading}
                       >
@@ -260,18 +260,18 @@ export function AddEmployeeDialog({ onEmployeeAdded }: AddEmployeeDialogProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-slate-700 font-medium flex items-center text-sm">
-                        <DollarSign className="w-4 h-4 mr-2 text-slate-500" />
+                        <IndianRupee className="w-4 h-4 mr-2 text-slate-500" />
                         Hourly Rate (₹)
                       </FormLabel>
                       <FormControl>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm font-medium">₹</span>
-                          <Input 
-                            type="number" 
-                            placeholder="500" 
+                          <Input
+                            type="number"
+                            placeholder="500"
                             step="1"
                             min="0"
-                            {...field} 
+                            {...field}
                             className="h-10 pl-8 border-slate-300 focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                             disabled={loading}
                           />
